@@ -3,92 +3,89 @@ using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using System.ComponentModel.Design;
+using State = StateMachine<TestM.TurnManager>.State;
+using UnityEngine.Playables;
 
-public class TurnManager : MonoBehaviour
+
+namespace TestM
 {
-
-    public bool startLoopOnStart;
-
-    // 登録されたCommander
-    readonly List<Commander> m_Commanders = new List<Commander>();
-
-    // 保留中のCommander
-    readonly HashSet<Commander> m_PendingCommanders = new HashSet<Commander>();
-
-    void Start()
+    public class TurnManager : MonoBehaviour
     {
-        if (startLoopOnStart)
+        StateMachine<TurnManager> _stateMachine;
+
+        [SerializeField, Tooltip("")]
+        TurnState _currentTurn;
+
+
+        void Start ()
         {
-            StartLoop();
+            StateCash();
+
         }
-    }
 
-    public void StartLoop()
-    {
-        StartCoroutine(Loop());
-    }
-
-    IEnumerator Loop()
-    {
-        while (true)
+        void Update () 
         {
-            // 保留中のCommanderをループに追加する
-            if (m_PendingCommanders.Count > 0)
+            _stateMachine.Update();
+        }
+
+        #region StateMachine
+        private void StateCash()
+        {
+            _stateMachine = new StateMachine<TurnManager>(this);
+
+            _stateMachine.AddAnyTransition<PlayerTurnState>((int)TurnState.PlayerTurn);
+            _stateMachine.AddAnyTransition<EnemyTurnState>((int)TurnState.EnemyTurn);
+
+            _stateMachine.Start<PlayerTurnState>();
+        }
+
+        void ChangeState(TurnState nextState)
+        {
+            Debug.Log($"ターン変更 {nextState}");
+            _currentTurn = nextState;
+            _stateMachine.StateChange((int)_currentTurn);
+        }
+        #endregion
+
+        #region PlayerTurnState
+        private class PlayerTurnState : State
+        {
+            protected override void OnEnter(State prevState)
             {
-                foreach (Commander commander in m_PendingCommanders.ToArray())
-                {
-                    if (commander)
-                    {
-                        m_Commanders.Add(commander);
-                    }
-                }
-                m_PendingCommanders.Clear();
+
             }
 
-            // ターンを回す
-            foreach (Commander commander in OrderedCommanders().ToArray())
+            protected override void OnUpdate()
             {
-                if (commander == null)
-                {
-                    m_Commanders.Remove(commander);
-                    continue;
-                }
 
-                if (commander.BeginTurn())
-                {
-                    while ((commander != null) && commander.IsTurn.Value)
-                    {
-                        yield return null;
-                    }
-                }
             }
-            yield return null;
+
+            protected override void OnExit(State nextState)
+            {
+
+            }
         }
-    }
+        #endregion
 
-    // 登録されたCommanderを優先度順に並び替たシーケンスを返す
-    IEnumerable<Commander> OrderedCommanders()
-    {
-        return m_Commanders
-            .Where(c => c != null)
-            .OrderByDescending(c => c.Priority);
-    }
-
-    // Commanderを仮登録する
-    public bool AddCommander(Commander commander)
-    {
-        if (commander == null)
+        #region EnemyTurnState
+        private class EnemyTurnState : State
         {
-            throw new ArgumentNullException(nameof(commander));
-        }
-        return m_PendingCommanders.Add(commander);
-    }
+            protected override void OnEnter(State prevState)
+            {
 
-    // Commanderをループから削除する
-    public bool RemoveCommander(Commander commander)
-    {
-        m_Commanders.Remove(commander);
-        return m_PendingCommanders.Remove(commander);
+            }
+
+            protected override void OnUpdate()
+            {
+
+            }
+
+            protected override void OnExit(State nextState)
+            {
+
+            }
+        }
+        #endregion
+
     }
 }
